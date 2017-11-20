@@ -1,0 +1,9 @@
+﻿  Application.cpp
+  c:\program files (x86)\windows kits\10\include\10.0.15063.0\um\dinput.h: DIRECTINPUT_VERSION undefined. Defaulting to version 0x0800
+c:\users\finoli\desktop\direct3d_template - kopia\application.cpp(192): warning C4316: 'Model': object allocated on the heap may not be aligned 16
+c:\users\finoli\desktop\direct3d_template - kopia\application.cpp(504): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+c:\users\finoli\desktop\direct3d_template - kopia\application.cpp(508): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+c:\users\finoli\desktop\direct3d_template - kopia\application.cpp(512): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+c:\users\finoli\desktop\direct3d_template - kopia\application.cpp(516): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+  Demo.vcxproj -> C:\Users\Finoli\Desktop\Direct3D_template - kopia\Debug\Demo.exe
+  Demo.vcxproj -> C:\Users\Finoli\Desktop\Direct3D_template - kopia\Debug\Demo.pdb (Partial PDB)
