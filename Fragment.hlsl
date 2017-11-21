@@ -33,12 +33,28 @@ float ComputeDiffuseFactor(float3 lightVector, float3 normal)
 float4 PS_main(VS_OUT input) : SV_Target
 {
 	//normalize normal
-	input.NorW = normalize(input.NorW);
-	
+	input.NorW.xyz = normalize(input.NorW.xyz);
+
 	float3 lightPos = lightPosition.xyz;
 
 	//normalized vector from fragment in world space to light
-	float3 lightVector = normalize(lightPos - input.PosW.xyz);
+	float3 lightVector = normalize(lightPos - input.PosW.xyz );
+	
+	//---------------------------
+	//             Specular
+	//---------------------------
+
+	float3 N = input.NorW.xyz;
+	float3 L = normalize(lightPos - input.PosW);
+	float3 V = normalize(CamPos.xyz - input.PosW.xyz);
+	float3 R = 2 * dot(N, L) * N - L;
+
+
+	//float3 R = normalize((2 * dot(input.NorW.xyz, lightVector) * input.NorW.xyz) - lightVector);
+
+	float specularFactor = pow(max(dot(V, R), 0.0f), 10.0f); //TODO: hardcoded specular power
+
+	//---------------------------
 
 	//cos(angle) between light vector and normal of fragment (since normalized this is just dot prod)
 	float diffuseFactor = max(ComputeDiffuseFactor(lightVector, input.NorW.xyz), 0.0f);
@@ -51,7 +67,8 @@ float4 PS_main(VS_OUT input) : SV_Target
 	float4 final = float4(lightColor*sampledColor * 0.1f, 1.0f);
 
 	//calculate color from this light
-	float3 thisColor = diffuseFactor * sampledColor * lightColor;
+	float Ks = 1.0;
+	float3 thisColor = diffuseFactor * sampledColor * lightColor.xyz +( float3(1.0f, 1.0f, 1.0f) * specularFactor * Ks);
 
 	//add it to final
 	final += float4(thisColor, 1.0f);
