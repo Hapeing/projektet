@@ -16,6 +16,15 @@ using DirectX::XMMATRIX;
 
 class Model
 {
+public:
+
+	struct Material
+	{	
+		float KsR, KsG, KsB, Ns;			//specular color + power
+		float KdR, KdG, KdB, UseTexture;	//diffuse color  + useTexture 'boolean'
+		float KaR, KaG, KaB, pad2;			//Specular power
+	};
+
 private:
 	ID3D11Device*		 gDevice             = nullptr;
 	ID3D11DeviceContext* gDeviceContext      = nullptr;
@@ -30,12 +39,14 @@ private:
 	UINT                     m_indexCount    = 0;
 	UINT                     m_stride        = 0;
 
-	Texture* texture = nullptr;
-
+	Texture* texture                         = nullptr;
+	Material material                        = {};
 	//transformations for world matrix
 	XMVECTOR m_rotation    = DirectX::XMVectorSet(0.0, 0.0, 0.0, 0.0);
 	XMVECTOR m_scale       = DirectX::XMVectorSet(1.0, 1.0, 1.0, 0.0);
 	XMVECTOR m_translation = DirectX::XMVectorSet(0.0, 0.0, 0.0, 0.0);
+
+	ID3D11Buffer* m_materialCBuffer;
 
 	DirectX::XMMATRIX m_worldMatrix;
 
@@ -58,7 +69,7 @@ public:
 	void SetShadersAndDraw();
 	void CreateDebugPlane();
 
-	Model(ID3D11Device* device, ID3D11DeviceContext* deviceContext);
+	Model(ID3D11Device* device, ID3D11DeviceContext* deviceContext, ID3D11Buffer* materialBuffer);
 	~Model();
 };
 

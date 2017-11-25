@@ -6,20 +6,39 @@
 
 void Model::Draw()
 {
+	//Leave it up to caller to set shaders
+
+	//Set topology type
 	gDeviceContext->IASetPrimitiveTopology(m_topologyType);
+	//Send material to Pixel Shader
+	gDeviceContext->UpdateSubresource(m_materialCBuffer, 0, NULL, &material, 0, 0);
 
 	if (m_pIndexBuffer)
 	{
+		UINT offset = 0;
 		//Set vbuffer
-		gDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &m_stride, 0);
+		gDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &m_stride, &offset);
+
+		//Bind texture(s)
+		if (texture)
+			texture->Bind(gDeviceContext);
+
+		//Set ibuffer
+		gDeviceContext->IASetIndexBuffer(m_pIndexBuffer, DXGI_FORMAT_R32_UINT, offset);
 
 		//Draw
 		gDeviceContext->DrawIndexed(m_indexCount, 0, 0);
 	}
 	else
 	{
+		UINT offset = 0;
+
+		//Bind texture(s)
+		if (texture)
+			texture->Bind(gDeviceContext);
+
 		//Set vbuffer
-		gDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &m_stride, 0);
+		gDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &m_stride, &offset);
 
 		//Draw
 		gDeviceContext->Draw(m_vertexCount, 0);
@@ -55,6 +74,8 @@ void Model::SetShadersAndDraw()
 	}
 	//Set topology type
 	gDeviceContext->IASetPrimitiveTopology(m_topologyType);
+	//Send material to Pixel Shader
+	gDeviceContext->UpdateSubresource(m_materialCBuffer, 0, NULL, &material, 0, 0);
 
 	if (m_pIndexBuffer)
 	{
@@ -102,7 +123,7 @@ void Model::LoadOBJ(const char* directory, const char* name)
 	std::vector<Vertex_pos3nor3uv2> verts;
 	std::vector<UINT> indicies;
 	std::string mtllib;
-
+	bool useTexture = false;
 	//Parse vertex, UV and Normal information from the file
 	if (OBJFile.is_open())
 	{
@@ -232,8 +253,14 @@ void Model::LoadOBJ(const char* directory, const char* name)
 		while (!MTLFile.eof())
 		{
 			MTLFile >> input;
+
+			//-----------------
+			// Diffuse Texture
+			//-----------------
 			if (input == "map_Kd")
 			{
+				useTexture = true;
+
 				MTLFile >> input;
 				string narrow_string(directory + input);
 				std::wstring wide_string = std::wstring(narrow_string.begin(), narrow_string.end());
@@ -247,7 +274,28 @@ void Model::LoadOBJ(const char* directory, const char* name)
 
 				break;
 			}
+			else if (input == "Ks")
+			{
+				MTLFile >> material.KsR >> material.KsG >> material.KsB;
+			}
+			else if (input == "Ka")
+			{
+				MTLFile >> material.KaR >> material.KaG >> material.KaB;
+			}
+			else if (input == "Kd")
+			{
+				MTLFile >> material.KdR >> material.KdG >> material.KdB;
+			}
+			else if (input == "Ns")
+			{
+				MTLFile >> material.Ns;
+			}
 		}
+
+		(useTexture) ? 
+			material.UseTexture =  1.0f 
+		  : material.UseTexture = -1.0f;
+
 		MTLFile.close();
 	}
 }
@@ -277,6 +325,34 @@ void Model::IncreaseTranslation(XMVECTOR translation)
 {
 	m_translation = DirectX::XMVectorAdd(m_translation, translation);
 }
+
+
+
+
+
+
+
+
+
+
+//
+//Model& Model::operator=(const Model &other)
+//{
+//	this->gDevice = other.gDevice;
+//	this->gDeviceContext = other.gDeviceContext;
+//	this->m_shaders = other.m_shaders;
+//	this->
+//}
+
+
+
+
+
+
+
+
+
+
 
 void Model::CreateDebugPlane()
 {
@@ -323,11 +399,9 @@ void Model::CreateDebugPlane()
 	hr = gDevice->CreateBuffer(&bufferDesc, &data, &m_pVertexBuffer);
 }
 
-Model::Model(ID3D11Device* device, ID3D11DeviceContext* deviceContext) 
-	: gDevice(device), gDeviceContext(deviceContext)
-{
-	//CreateDebugPlane();
-}
+Model::Model(ID3D11Device* device, ID3D11DeviceContext* deviceContext, ID3D11Buffer* materialCbuffer)
+	: gDevice(device), gDeviceContext(deviceContext), m_materialCBuffer(materialCbuffer)
+{}
 
 Model::~Model()
 {
