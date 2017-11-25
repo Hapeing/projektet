@@ -2,5 +2,3 @@
 *.tlog
 *.tlog
 *.obj
-VertexShader.hlsl
-Debug/Demo.tlog/CL.command.1.tlog
