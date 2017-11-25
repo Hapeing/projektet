@@ -71,7 +71,7 @@ bool Shader::Create(const wchar_t* filename, SHADER_TYPE type)
 		nullptr,		    // optional include files
 		entryPoint.c_str(),		    // entry point
 		shaderModel.c_str(),		    // shader model (target)
-		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,	// shader compile options (DEBUGGING)
+		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,	// shader compile options (DEBUGGING) 
 		0,				    // IGNORE...DEPRECATED.
 		&pBlob,			    // double pointer to ID3DBlob		
 		&errorBlob		    // pointer for Error Blob messages.
