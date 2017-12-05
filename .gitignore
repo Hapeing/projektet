@@ -14,3 +14,8 @@ Debug/Demo.pdb
 Debug/Application.obj
 *.obj
 Debug/Application.obj
+*.opendb
+.vs/D3DDemo/v15/.suo
+*.db
+*.ilk
+*.log
