@@ -9,14 +9,23 @@
 #include <dinput.h>
 #include "Texture.h"
 #include "Model.h"
+#include "DeferredRenderer.h"
+#include "Scene.h"
+#include "Helpers.h"
 
 using std::vector;
 typedef std::unordered_map<std::string, Texture*> TextureMap;
 
+
 class Application
 {
 private:
+	//----- Private methods
 
+	void CompileShader(ShaderDescription desc);
+	void CompileShader(UINT numShaders, ShaderDescription* desc);
+
+	//-----
 	HWND* hWnd;
 
 	UINT width, height = 0;
@@ -35,7 +44,7 @@ private:
 	ID3D11UnorderedAccessView* gUAV2		= nullptr;
 	ID3D11ShaderResourceView* gSRV                 = nullptr;
 
-
+	DeferredRenderer* m_dr;
 	//Models
 	vector<Model*> m_vModels;
 	std::unordered_map<std::string, Model*> m_mModels;
@@ -49,6 +58,7 @@ private:
 	IDirectInputDevice8* DIMouse;
 
 	DIMOUSESTATE mouseLastState;
+	BYTE lastKeyboardState[256];
 	LPDIRECTINPUT8 DirectInput;
 
 	float rotx = 0;
@@ -63,6 +73,13 @@ private:
 	std::clock_t time;
 	float timeElapsed = 0.0f;
 	float lastTimeElapsed = 0.0f;
+
+	bool bUseGaussianFilter = false;
+	bool bUseDeferredShader = false;
+
+	//test
+	//TODO
+	Scene* scene;
 public:
 	//Textures
 	static TextureMap m_smTextures;
@@ -71,15 +88,18 @@ public:
 	void CreateConstantBuffer(ID3D11Buffer** buf, size_t size);
 
 	HRESULT CreateDirect3DContext(HWND wndHandle);
+	void CreateDeferredRenderer();
 	void CreateConstantBuffers();
 	void CreateShaders();
 	void CreateModels();
+	Model* CreateModelFromReference(Model* reference);
 	void SetViewport();
 	void CreateDepthStencilBuffer();
 	void CreateRasterizer();
 	void Update(HINSTANCE hInstance);
 	void Render();
 
+	void CreateScenes();
 	
 	// DirectInput
 	bool InitDirectInput(HINSTANCE hInstance);

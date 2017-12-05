@@ -3,7 +3,6 @@
 
 #define SAFE_RELEASE(x) {if(x) x->Release();}
 
-
 void Model::Draw()
 {
 	//Leave it up to caller to set shaders
@@ -109,11 +108,12 @@ void Model::SetShadersAndDraw()
 	}
 }
 
-void Model::LoadOBJ(const char* directory, const char* name)
+void Model::LoadOBJ(const char* name)
 {
 	std::ifstream OBJFile;
 	//Open file
-	OBJFile.open(std::string(string(directory) + name + ".obj"));
+	string poop = string(string("Resources/") + name + ".obj");
+	OBJFile.open(poop);
 
 	assert(OBJFile.is_open() && "obj file not open");
 
@@ -244,7 +244,7 @@ void Model::LoadOBJ(const char* directory, const char* name)
 	{
 		std::ifstream MTLFile;
 		//open
-		std::string mtlfile = std::string(string(directory) + mtllib);
+		std::string mtlfile = std::string("Resources/" + mtllib);
 		MTLFile.open(mtlfile);
 
 		assert(MTLFile.is_open() && "mtl file not open");
@@ -262,7 +262,7 @@ void Model::LoadOBJ(const char* directory, const char* name)
 				useTexture = true;
 
 				MTLFile >> input;
-				string narrow_string(directory + input);
+				string narrow_string("\\Resources" + input);
 				std::wstring wide_string = std::wstring(narrow_string.begin(), narrow_string.end());
 				//this->LoadTexture(wide_string.c_str());
 

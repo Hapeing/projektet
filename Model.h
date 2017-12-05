@@ -56,7 +56,7 @@ public:
 
 	XMMATRIX GetWorldMatrix();
 
-	void LoadOBJ(const char* directory, const char* name); //TODO: get material
+	void LoadOBJ(const char* name); //TODO: get material
 	void AssignTexture(std::string name);
 	void LoadTexture(const wchar_t* filename);
 	//Euler rotation

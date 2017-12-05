@@ -49,9 +49,11 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdL
 		app.CreateDirect3DContext(wndHandle);
 		app.SetViewport(); 
 		app.CreateShaders();
-		app.CreateModels();
 		app.CreateConstantBuffers();
+		app.CreateModels();
 		app.InitDirectInput(hInstance);
+		app.CreateDeferredRenderer();
+		//app.CreateScenes();
 
 		ShowWindow(wndHandle, nCmdShow);
 

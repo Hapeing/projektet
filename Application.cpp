@@ -1,11 +1,41 @@
 #include "Application.h"
 #define TWO_PI 6.28318531
-#define SPEED_MODIFIER 0.0005
+#define SPEED_MODIFIER 0.002
 #define DEFAULT_DIRECTORY std::string("C:\\Users\\Finoli\\Desktop\\")
 #define WDEFAULT_DIRECTORY std::wstring(L"C:\\Users\\Finoli\\Desktop\\")
 
+#define TOGGLE(x) (x = !x)
 
 TextureMap Application::m_smTextures;
+
+
+
+
+//---------Private Methods--------------
+
+void Application::CompileShader(ShaderDescription desc)
+{
+	Shader* shader = new Shader(gDevice, gDeviceContext);
+	shader->Create(desc.file.c_str(), desc.type);
+	m_vShaders.insert({ desc.name, shader });
+}
+
+void Application::CompileShader(UINT numShaders, ShaderDescription* desc)
+{
+	for (int i = 0; i < numShaders; i++)
+	{
+		Shader* shader = new Shader(gDevice, gDeviceContext);
+		shader->Create(desc[i].file.c_str(), desc[i].type);
+		m_vShaders.insert({ desc[i].name, shader });
+	}
+}
+
+//--------------------------------------
+
+
+
+
+
 
 HRESULT Application::CreateDirect3DContext(HWND wndHandle)
 {
@@ -83,6 +113,14 @@ HRESULT Application::CreateDirect3DContext(HWND wndHandle)
 	return hr;
 }
 
+void Application::CreateDeferredRenderer()
+{
+	m_dr = new DeferredRenderer(gDevice, gDeviceContext, depthStencilView, width, height);
+	m_dr->Initialize(gBackbufferRTV);
+	m_dr->SetCamera(&camera);
+	m_dr->SetBuffers(m_vBuffers["WVP"], m_vBuffers["LIGHT"], m_vBuffers["CAMERA"]);
+}
+
 void Application::CreateConstantBuffers()
 {
 	//Vertex transformations cbuffer
@@ -114,15 +152,23 @@ void Application::CreateConstantBuffers()
 		};
 
 		PointLight light = {
-			0.0, 10.0, 0.0, 1.0, //pos
-			.5, 1.0, 0.0, 1.0,	//greenish color
+			50.0, 100.0, -30.0, 1.0, //pos
+			1.0, 1.0, 1.0, 1.0	//greyish color
 		};
 
+		//Light cbuffer
 		ID3D11Buffer* light_buffer;
 		CreateConstantBuffer(&light_buffer, sizeof(DirectX::XMFLOAT4X4));
-
-		//init wvp
 		gDeviceContext->UpdateSubresource(light_buffer, 0, NULL, &light, 0, 0);
+
+		//Material cbuffer
+		Model::Material nullMat = {};
+		ID3D11Buffer* material_buffer;
+		CreateConstantBuffer(&material_buffer, sizeof(Model::Material));
+		gDeviceContext->UpdateSubresource(material_buffer, 0, NULL, &nullMat, 0, 0);
+		m_vBuffers.insert({ "MATERIAL", material_buffer });
+		gDeviceContext->PSSetConstantBuffers(2, 1, &material_buffer);
+		//init wvp
 
 		//TODO:? make static
 		m_vBuffers.insert({ "LIGHT", light_buffer });
@@ -143,32 +189,16 @@ void Application::CreateShaders()
 {
 	//Shader compilation
 
-	//Create pointer and 'new' a shader object
-	Shader* vs1 = new Shader(gDevice, gDeviceContext);
-	//Call create, passing in shader file name and shader type
-	vs1->Create(L"Vertex.hlsl", SHADER_TYPE::VERTEX_SHADER);
-	//Insert into shader map for easy access 
-	m_vShaders.insert({ "vs1", vs1 });
-
-	Shader* ps1 = new Shader(gDevice, gDeviceContext);
-	ps1->Create(L"Fragment.hlsl", SHADER_TYPE::PIXEL_SHADER);
-	m_vShaders.insert({ "ps1", ps1 });
-
-	Shader* gs1 = new Shader(gDevice, gDeviceContext);
-	gs1->Create(L"GeometryShader.hlsl", SHADER_TYPE::GEOMETRY_SHADER);
-	m_vShaders.insert({ "gs1", gs1 });
-
-	Shader* cs1 = new Shader(gDevice, gDeviceContext);
-	cs1->Create(L"ComputeShader.hlsl", SHADER_TYPE::COMPUTE_SHADER);
-	m_vShaders.insert({ "cs1", cs1 });	
-	
-	//Shader* vs2 = new Shader(gDevice, gDeviceContext);
-	//vs2->Create(L"VS_quad.hlsl", SHADER_TYPE::VERTEX_SHADER);
-	//m_vShaders.insert({ "VS_quad", vs2 });
-
-	//Shader* ps2 = new Shader(gDevice, gDeviceContext);
-	//ps2->Create(L"PS_quad.hlsl", SHADER_TYPE::PIXEL_SHADER);
-	//m_vShaders.insert({ "PS_quad", ps2 });
+	ShaderDescription desc[6] = 
+	{
+	"vs1"    , L"Vertex.hlsl",		  VERTEX_SHADER,  //Forward rendering VS
+	"ps1"    , L"Fragment.hlsl",	  PIXEL_SHADER,   //Forward rendering PS
+	"cs1"    , L"ComputeShader.hlsl", COMPUTE_SHADER, //Gaussian filter CS
+	"VS_quad", L"VS_quad.hlsl",		  VERTEX_SHADER,  //Full-screen quad VS (for deferred rendering)
+	"DRP1"   , L"PS_DRP1.hlsl",		  PIXEL_SHADER,   //First pass (geometry) PS (for deferred rendering)
+	"DRP2"   , L"PS_DRP2.hlsl",		  PIXEL_SHADER    //Second pass (lighting) PS (for deferred rendering)
+	};
+	CompileShader(6, desc);
 }
 
 void Application::CreateModels()
@@ -186,45 +216,25 @@ void Application::CreateModels()
 	texRed->LoadFromFile(gDevice, (WDEFAULT_DIRECTORY + L"red.png").c_str());
 	m_smTextures.insert({ "red", texRed });
 
-	//Models
+	Texture* texGrey = new Texture();
+	texGrey->LoadFromFile(gDevice, (WDEFAULT_DIRECTORY + L"grey.png").c_str());
+	m_smTextures.insert({ "grey", texGrey });
 
-	//Create pointer, 'new' a Model
-	Model* sphere = new Model(gDevice, gDeviceContext);
-	//Call load, passing in directory and name. Name NEEDS to correspond to filename, i.e. sphere.obj
-	sphere->LoadOBJ("C:\\Users\\Finoli\\Desktop\\", "sphere");
-	//Set shaders to use (VS, PS, GS)
-	sphere->SetShaders(m_vShaders["vs1"], m_vShaders["ps1"], nullptr);
-	//Assign texture (OBJLoader will create and assign one if the .mtl specifies one
-	sphere->AssignTexture("checkered");
-	//Insert into vector
-	m_vModels.push_back(sphere);
-	//Insert into map for easy accessd
-	m_mModels.insert({ "sphere",  sphere });
+	Model* dumpster = new Model(gDevice, gDeviceContext, m_vBuffers["MATERIAL"]);
+	dumpster->LoadOBJ("dumpster1");
+	dumpster->SetShaders(m_vShaders["vs1"], m_vShaders["ps1"], nullptr);
+	//dumpster->AssignTexture("grey");
+	m_vModels.push_back(dumpster);
+	m_mModels.insert({ "dumpster", dumpster });
 
-	//lamp
-	//Add models
-	//Model* model = new Model(gDevice, gDeviceContext);
-	//model->LoadOBJ("C:\\Users\\Finoli\\Desktop\\", "lamp_mat");
-	//model->SetShaders(m_vShaders["vs1"], m_vShaders["ps1"], nullptr);
-	//model->IncreaseTranslation(DirectX::XMVectorSet(0.0, 6.0, 0.0, 0.0));
-	////model->LoadTexture(L"C:\\Users\\Finoli\\Desktop\\checkered.png");
-	//m_vModels.push_back(model);
-	//m_mModels.insert({ "cube", model });
+}
 
-	//Model* model1 = new Model(gDevice, gDeviceContext);
-	//model1->LoadOBJ("C:\\Users\\Finoli\\Desktop\\", "plane");
-	//model1->SetShaders(m_vShaders["vs1"], m_vShaders["ps1"], nullptr);
-	//model1->AssignTexture("red");
-	//m_vModels.push_back(model1);
-	//m_mModels.insert({ "plane",  model1 });
-
-	//Model* model2 = new Model(gDevice, gDeviceContext);
-	//model2->LoadOBJ("C:\\Users\\Finoli\\Desktop\\", "cube_small_uv");
-	//model2->SetShaders(m_vShaders["vs1"], m_vShaders["ps1"], nullptr);
-	//model2->AssignTexture("checkered");
-	//m_vModels.push_back(model2);
-	//m_mModels.insert({ "cube_uv",  model2 });
-
+Model* Application::CreateModelFromReference(Model * reference)
+{
+	Model* model = new Model(gDevice, gDeviceContext, m_vBuffers["MATERIAL"]);
+	*model = *reference;
+	m_vModels.push_back(model);
+	return model;
 }
 
 //Boring
@@ -334,106 +344,132 @@ void Application::Update(HINSTANCE hInstance)
 //Some 'updatey' stuff done here
 void Application::Render()
 {
-	gDeviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	//+-+-+-+-+ Preparations -+-+-+-+
-	float clearColor[] = { .5, .5, .5, 1 };
-	gDeviceContext->ClearRenderTargetView(gBackbufferRTV, clearColor);
-	// Bind depth stencil state
-	gDeviceContext->OMSetDepthStencilState(depthStencilState, 1);
-	//+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-	
+	//----------------------
+	//		Render scene
+	//----------------------
 
-
-	//Update camera ---------------------
-	XMMATRIX camRotationMatrix = XMMatrixRotationRollPitchYaw(camPitch, camYaw, 0.0);
-	XMVECTOR camTarget = XMVector3TransformCoord(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRotationMatrix);
-	camTarget = XMVector3Normalize(camTarget);
-	camera.SetCameraTarget(camera.GetCameraPosition() + camTarget);
-	camera.SetCameraUp(XMVector3TransformCoord(camera.GetCameraUp(), XMMatrixRotationY(camYaw)));
-	camera.Update();
-
-	//Update camera cbuffer
+	if(bUseDeferredShader)
 	{
-		XMFLOAT4 data;
-		XMStoreFloat4(&data, camera.GetCameraPosition());
-		gDeviceContext->UpdateSubresource(m_vBuffers["CAMERA"], 0, NULL, &data, 0, 0);
+		m_dr->SetShaders(m_vShaders["DRP1"], m_vShaders["DRP2"], m_vShaders["vs1"], m_vShaders["VS_quad"]);
+		m_dr->SetRenderTargets();
+		m_dr->PrepareForGeometryPass(camPitch, camYaw);
+		m_dr->RenderGeometry(m_vModels);
+		m_dr->PrepareForLightingPass();
+		m_dr->RenderLights();
 	}
-	//-----------------------------------
-
-
-	//Update wvp
-	for (auto& model : m_vModels)
+	else
 	{
-		//Update models world
-		model->Update();
-		//Update Camera and WVP Cbuffer
-		camera.SetWorldMatrix(model->GetWorldMatrix());
-		//camera.SetWorldMatrix(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationX(0), DirectX::XMMatrixRotationY(0)));
+		gDeviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		//+-+-+-+-+ Preparations -+-+-+-+
+		float clearColor[] = { .5, .5, .5, 1 };
+		gDeviceContext->ClearRenderTargetView(gBackbufferRTV, clearColor);
+		// Bind depth stencil state
+		gDeviceContext->OMSetDepthStencilState(depthStencilState, 1);
+		//+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 
-		struct WVP
+		//Update camera ---------------------
+		XMMATRIX camRotationMatrix = XMMatrixRotationRollPitchYaw(camPitch, camYaw, 0.0);
+		XMVECTOR camTarget = XMVector3TransformCoord(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRotationMatrix);
+		camTarget = XMVector3Normalize(camTarget);
+		camera.SetCameraTarget(camera.GetCameraPosition() + camTarget);
+		camera.SetCameraUp(XMVector3TransformCoord(camera.GetCameraUp(), XMMatrixRotationY(camYaw)));
+		camera.Update();
+
+		//Update camera cbuffer
 		{
-			XMFLOAT4X4 wvp;
-			XMFLOAT4X4 w;
-			XMFLOAT4X4 it_w;
-		};
-		WVP wvp;
-		
-		//Set WVP
-		wvp.wvp = camera.GetWVPMatrix();
+			XMFLOAT4 data;
+			XMStoreFloat4(&data, camera.GetCameraPosition());
+			gDeviceContext->UpdateSubresource(m_vBuffers["CAMERA"], 0, NULL, &data, 0, 0);
+		}
+		//-----------------------------------
 
-		//Get world
-		XMMATRIX it_w = camera.GetWorldMatrix();
 
-		//Set world
-		XMStoreFloat4x4(&wvp.w, DirectX::XMMatrixTranspose(it_w));
+		//Update wvp
+		for (auto& model : m_vModels)
+		{
+			//Update models world
+			model->Update();
+			//Update Camera and WVP Cbuffer
+			camera.SetWorldMatrix(model->GetWorldMatrix());
+			//camera.SetWorldMatrix(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationX(0), DirectX::XMMatrixRotationY(0)));
 
-		//Calc and set inverse transpose of world
-		it_w = XMMatrixTranspose(XMMatrixInverse(&XMMatrixDeterminant(it_w), it_w));
-		XMStoreFloat4x4(&wvp.it_w, it_w);
 
-		gDeviceContext->UpdateSubresource(m_vBuffers["WVP"], 0, NULL, &wvp, 0, 0);
 
-		gDeviceContext->VSSetConstantBuffers(0, 1, &m_vBuffers["WVP"]);
+			struct WVP
+			{
+				XMFLOAT4X4 wvp;
+				XMFLOAT4X4 w;
+				XMFLOAT4X4 it_w;
+			};
+			WVP wvp;
 
-		gDeviceContext->PSSetConstantBuffers(0, 1, &m_vBuffers["LIGHT"]);
+			//Set WVP
+			wvp.wvp = camera.GetWVPMatrix();
 
-		gDeviceContext->PSSetConstantBuffers(1, 1, &m_vBuffers["CAMERA"]); 
+			//Get world
+			XMMATRIX it_w = camera.GetWorldMatrix();
 
-		//draw the model
-		model->SetShadersAndDraw();
+			//Set world
+			XMStoreFloat4x4(&wvp.w, DirectX::XMMatrixTranspose(it_w));
 
+			//Calc and set inverse transpose of world
+			it_w = XMMatrixTranspose(XMMatrixInverse(&XMMatrixDeterminant(it_w), it_w));
+			XMStoreFloat4x4(&wvp.it_w, it_w);
+
+			gDeviceContext->UpdateSubresource(m_vBuffers["WVP"], 0, NULL, &wvp, 0, 0);
+
+			gDeviceContext->VSSetConstantBuffers(0, 1, &m_vBuffers["WVP"]);
+
+			gDeviceContext->PSSetConstantBuffers(0, 1, &m_vBuffers["LIGHT"]);
+
+			gDeviceContext->PSSetConstantBuffers(1, 1, &m_vBuffers["CAMERA"]);
+
+			//draw the model
+			model->SetShadersAndDraw();
+
+		}
 	}
 
 
-	//-----------------------------------.
-	//Post processing (gaussian blur) |
-	//-----------------------------------´
+	//-----------------------------------
+	//	Post processing (gaussian blur) 
+	//-----------------------------------
+	if (bUseGaussianFilter)
+	{
+		//Null views for unbinding 
+		ID3D11UnorderedAccessView* nullUAV = { nullptr };
+		ID3D11ShaderResourceView* nullSRV = { nullptr };
+		ID3D11RenderTargetView* nullview = { nullptr };
+		ID3D11InputLayout* nullayout = { nullptr };
 
-	//Null views for unbinding 
-	ID3D11UnorderedAccessView* nullUAV = { nullptr };
-	ID3D11ShaderResourceView* nullSRV = { nullptr };
-	ID3D11RenderTargetView* nullview  = { nullptr };
-	ID3D11InputLayout* nullayout = { nullptr };
+		//Unbind render target (i.e. back buffer)
+		gDeviceContext->OMSetRenderTargets(0, &nullview, depthStencilView);
+		//Set compute shader
+		m_vShaders["cs1"]->Bind();
+		//Set UAV (back buffer)
+		gDeviceContext->CSSetUnorderedAccessViews(0, 1, &gUAV, 0);
 
-	//Unbind render target (i.e. back buffer)
-	gDeviceContext->OMSetRenderTargets(0, &nullview, depthStencilView);
-	//Set compute shader
-	m_vShaders["cs1"]->Bind();
-	//Set UAV (back buffer)
-	gDeviceContext->CSSetUnorderedAccessViews(0, 1, &gUAV, 0);
+		//Do blur
+		gDeviceContext->Dispatch((UINT)width / 32, (UINT)height / 32, 1);
 
-	//Do blur
-	//gDeviceContext->Dispatch((UINT)width / 32, (UINT)height / 32, 1);
-
-	//Unbind UAV
-	gDeviceContext->CSSetUnorderedAccessViews(0, 1, &nullUAV, 0);
-	//Rebind back buffer as render target
-	gDeviceContext->OMSetRenderTargets(1, &gBackbufferRTV, depthStencilView);
+		//Unbind UAV
+		gDeviceContext->CSSetUnorderedAccessViews(0, 1, &nullUAV, 0);
+		//Rebind back buffer as render target
+		gDeviceContext->OMSetRenderTargets(1, &gBackbufferRTV, depthStencilView);
+	}
 
 	//Present to screen
 	gSwapChain->Present(0, 0);
+}
+
+void Application::CreateScenes()
+{
+	//Just testing
+	//TODO: Proper
+	scene = new Scene(gDevice, gDeviceContext, m_vBuffers["MATERIAL"], m_mModels);
+	scene->LoadScene("scene.txt");
 }
 
 //Creates a basic constant buffer
@@ -499,6 +535,14 @@ void Application::DetectInput(double time)
 		PostMessage(*hWnd, WM_DESTROY, 0, 0);
 
 	//Camera movement (W, A, S, D)
+	if ((lastKeyboardState[DIK_G] & 0x80) && !(keyboardState[DIK_G] & 0x80))
+	{
+		TOGGLE(bUseGaussianFilter);
+	}
+	if ((lastKeyboardState[DIK_P] & 0x80) && !(keyboardState[DIK_P] & 0x80))
+	{
+		TOGGLE(bUseDeferredShader);
+	}
 	if (keyboardState[DIK_A] & 0x80)
 	{
 		camera.MoveCameraRightLeft(-SPEED_MODIFIER * time);
@@ -536,6 +580,8 @@ void Application::DetectInput(double time)
 	
 	//Update last mouse state
 	mouseLastState = mouseCurrState;
+	
+	CopyMemory(&lastKeyboardState[0], &keyboardState[0], sizeof(BYTE) * 256);
 
 	return;
 }

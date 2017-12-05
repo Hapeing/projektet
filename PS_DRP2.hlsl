@@ -3,6 +3,22 @@ Texture2D DiffuseTexture  : register(t1);
 Texture2D SpecularTexture : register(t2);
 Texture2D PositionTexture : register(t3);
 
+//Hard coded lights
+struct PLight
+{
+	float4 lightPosition;
+	float4 lightColor;	  //.a is intensity
+};
+
+float lights[16] = 
+{
+	50.0, 100.0, -30.0, 1.0, //pos
+	1.0, 1.0, 1.0, 1.0,	//greyish color
+
+	150, 100.0, 30.0, 1.0, //pos
+	0.0, 1.0, 1.0, 1.0	//greyish color
+};
+
 void GetAttributes
 (
 	in float2 screenPosition,
@@ -53,42 +69,48 @@ float4 PS_main(in float4 screenPos : SV_Position) : SV_TARGET0
 	//normalize normal
 	NorW.xyz = normalize(NorW.xyz);
 
-	float3 lightPos = lightPosition.xyz;
+	float4 final = float4(0.0, 0.0, 0.0, 1.0);
+	for (int i = 0; i < 1; i++)
+	{
+		//float3 lightPos = float3(lights[0 + i * 8] , lights[1 + i * 8], lights[2 + i * 8]);
+		//float4 lightCol = float4(lights[4 + i * 8], lights[5 + i * 8], lights[6 + i * 8], lights[7 + i * 8]);
 
-	//normalized vector from fragment in world space to light
-	float3 lightVector = normalize(lightPos - PosW.xyz);
+		float3 lightPos = lightPosition.xyz;
+		float4 lightCol = lightColor;
+		//normalized vector from fragment in world space to light
+		float3 lightVector = normalize(lightPos - PosW.xyz);
 
-	//---------------------------
-	//             Specular
-	//---------------------------
+		//---------------------------
+		//             Specular
+		//---------------------------
 
-	float3 N = NorW.xyz;
-	float3 L = normalize(lightPos - PosW);
-	float3 V = normalize(CamPos.xyz - PosW.xyz);
-	float3 R = 2 * dot(N, L) * N - L;
-
-
-	//float3 R = normalize((2 * dot(input.NorW.xyz, lightVector) * input.NorW.xyz) - lightVector);
-
-	float specularFactor = pow(max(dot(V, R), 0.0f), specularPower);
-
-	//---------------------------
-
-	//cos(angle) between light vector and normal of fragment (since normalized this is just dot prod)
-	float diffuseFactor = max(ComputeDiffuseFactor(lightVector, NorW.xyz), 0.0f);
+		float3 N = NorW.xyz;
+		float3 L = normalize(lightPos - PosW);
+		float3 V = normalize(CamPos.xyz - PosW.xyz);
+		float3 R = 2 * dot(N, L) * N - L;
 
 
-	//initialize final with ambient as ambientColor*lightcol*fragmentCol*0.1
-	float3 ambientColor = diffuse * float3(0.2, 0.2, 0.2); //Never pitch black color
-	float4 final = float4(ambientColor*lightColor*diffuse * 0.3f, 1.0f);
+		//float3 R = normalize((2 * dot(input.NorW.xyz, lightVector) * input.NorW.xyz) - lightVector);
 
-	//calculate color from this light
-	float3 thisColor =
-	diffuseFactor * diffuse * lightColor.xyz	//Diffuse factor
-	+ (specular * specularFactor);						//Specular factor
+		float specularFactor = pow(max(dot(V, R), 0.0f), specularPower);
 
-													//add it to final
-	final += float4(thisColor, 1.0f);
+		//---------------------------
+
+		//cos(angle) between light vector and normal of fragment (since normalized this is just dot prod)
+		float diffuseFactor = max(ComputeDiffuseFactor(lightVector, NorW.xyz), 0.0f);
+
+
+		//initialize final with ambient as ambientColor*lightcol*fragmentCol*0.1
+		float3 ambientColor = diffuse * float3(0.2, 0.2, 0.2); //Never pitch black color
+		float4 thisColor = float4(ambientColor*lightCol*diffuse * 0.3f, 1.0f);
+
+		//calculate color from this light
+		thisColor =
+			float4((diffuseFactor * diffuse * lightCol.xyz	+ (specular * specularFactor)), 1.0f); // Diffuse factor(no attenuation)				//Specular factor
+
+		final += float4(thisColor.xyz, 1.0);
+	}
+
 
 	//clamp to 0.0-1.0 and return final
 	return min(final, float4(1.0, 1.0, 1.0, 1.0));

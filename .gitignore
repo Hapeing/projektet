@@ -1,4 +1,16 @@
-
+Debug\
 *.tlog
 *.tlog
 *.obj
+Debug/main.obj
+Debug/Fragment.cso
+Debug/Demo.tlog/link.write.1.tlog
+Debug/Demo.tlog/link.read.1.tlog
+*.tlog
+Debug/Demo.pdb
+*.log
+*.ilk
+*.exe
+Debug/Application.obj
+*.obj
+Debug/Application.obj
