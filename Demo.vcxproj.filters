@@ -28,6 +28,12 @@
     <Filter Include="Source Files\Graphics">
       <UniqueIdentifier>{700c2f01-25c7-42df-b15f-97fa0c1b7520}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\ComLib">
+      <UniqueIdentifier>{04ff4cd5-e420-42d4-b4c5-98fb3ff56a1e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ComLib">
+      <UniqueIdentifier>{631a44de-e625-4479-808e-6813cc502f44}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -53,6 +59,15 @@
     </ClCompile>
     <ClCompile Include="Texture.cpp">
       <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ComLib.cpp">
+      <Filter>Source Files\ComLib</Filter>
+    </ClCompile>
+    <ClCompile Include="SharedMemoryBuffer.cpp">
+      <Filter>Source Files\ComLib</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -120,6 +135,21 @@
     </ClInclude>
     <ClInclude Include="VertexHeader.h">
       <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Helpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ComLib.h">
+      <Filter>Header Files\ComLib</Filter>
+    </ClInclude>
+    <ClInclude Include="ComLibHeaders.h">
+      <Filter>Header Files\ComLib</Filter>
+    </ClInclude>
+    <ClInclude Include="SharedMemoryBuffer.h">
+      <Filter>Header Files\ComLib</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

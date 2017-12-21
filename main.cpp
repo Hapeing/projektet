@@ -53,6 +53,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdL
 		app.CreateModels();
 		app.InitDirectInput(hInstance);
 		app.CreateDeferredRenderer();
+		app.InitComLib();
 		//app.CreateScenes();
 
 		ShowWindow(wndHandle, nCmdShow);

@@ -2,7 +2,7 @@
 
 
 
-Camera::Camera(unsigned int w, unsigned int h) : vp_w(w), vp_h(h)
+Camera::Camera(unsigned int w, unsigned int h, CAMERA_TYPE type) : vp_w(w), vp_h(h), cameraType(type)
 {
 	DefaultForward = XMVectorSet(0.0, 0.0, 1.0, 0.0);
 	DefaultRight   = XMVectorSet(1.0, 0.0, 0.0, 0.0);
@@ -16,13 +16,21 @@ Camera::Camera(unsigned int w, unsigned int h) : vp_w(w), vp_h(h)
 	camView        = DirectX::XMMatrixLookAtLH(camPosition, camTarget, camUp);
 
 	//Set the Projection matrix
-	camProjection  = DirectX::XMMatrixPerspectiveFovLH(0.4f*3.1415f, (float)w / h, 1.0f, 1000.0f);
+	if (cameraType == CAMERA_TYPE::PERSPECTIVE)
+	{
+		camProjection = DirectX::XMMatrixPerspectiveFovLH(0.4f*3.1415f, (float)w / h, 0.1f, 1000.0f);
+	}
+	else
+	{
+		DirectX::XMMatrixOrthographicLH(w, h, 0.1f, 1000.0f);
+	}
 }
 
-void Camera::Init(unsigned int w, unsigned int h)
+void Camera::Init(unsigned int w, unsigned int h, CAMERA_TYPE type)
 {
 	vp_w = w;
 	vp_h = h;
+	cameraType = type;
 
 	DefaultForward = XMVectorSet(0.0, 0.0, 1.0, 0.0);
 	DefaultRight   = XMVectorSet(1.0, 0.0, 0.0, 0.0);
@@ -36,19 +44,36 @@ void Camera::Init(unsigned int w, unsigned int h)
 	camView        = DirectX::XMMatrixLookAtLH(camPosition, camTarget, camUp);
 
 	//Set the Projection matrix
-	camProjection  = DirectX::XMMatrixPerspectiveFovLH(0.4f*3.1415f, (float)w / h, 0.1f, 1000.0f);
+	if (cameraType == CAMERA_TYPE::PERSPECTIVE)
+	{
+		camProjection = DirectX::XMMatrixPerspectiveFovLH(0.4f*3.1415f, (float)w / h, 0.1f, 1000.0f);
+	}
+	else
+	{
+		camProjection = DirectX::XMMatrixOrthographicLH(1, 1, 0.1f, 1000.0f);
+	}
 }
 
 void Camera::Update()
 {
 	//Update camview
-	camView = DirectX::XMMatrixLookAtLH(camPosition, camTarget, camUp);
+	//camView = DirectX::XMMatrixLookAtLH(camPosition, camTarget, camUp);
 }
 
 void Camera::UpdateCameraForwardRight(XMMATRIX matrix)
 {
 	Forward = XMVector3Transform(DefaultForward, matrix);
 	Right   = XMVector3Transform(DefaultRight,   matrix);
+}
+
+void Camera::SetView(XMMATRIX & matrix)
+{
+	camView = matrix;
+}
+
+void Camera::SetProjection(XMMATRIX & matrix)
+{
+	camProjection = matrix;
 }
 
 void Camera::SetCameraUp(XMVECTOR up)

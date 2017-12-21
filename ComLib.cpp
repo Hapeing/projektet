@@ -116,6 +116,13 @@ ComLib::ComLib(const std::string& secret, const size_t& buffSize, TYPE type)
 
 }
 
+void ComLib::Init(std::unordered_map<string, Model*>& modelMap, Shader* vs, Shader* ps)
+{
+	m_mModels  = &modelMap;
+	m_vs = vs;
+	m_ps = ps;
+}
+
 ComLib::~ComLib()
 {}
 
@@ -315,7 +322,7 @@ bool ComLib::recv(char * msg, size_t & length)
 	RETURN_SAFE_FALSE;
 }
 
-bool ComLib::recv1()
+bool ComLib::recv1(string& mdlName, vector<Vertex_pos3nor3uv2>& mdlVerts, XMMATRIX* matrix, sEditedCameraTransform& camStruct, MessageType& type)
 {
 	///+-+-+-+-+-+-+-+-+-+-+-+
 	//Acquire mutex
@@ -386,50 +393,140 @@ bool ComLib::recv1()
 		//Original attempt
 		{
 			sPrimaryHeader primary = {};
-			sNewMeshHeader secondary = {};
-			std::vector<sVector3> verts;
+			std::vector<Vertex_pos3nor3uv2> verts;
 			CopyMemory(&primary, pByte, sizeof(sPrimaryHeader));
 			pByte += sizeof(sPrimaryHeader);
-			CopyMemory(&secondary, pByte, sizeof(sNewMeshHeader));
-			pByte += sizeof(sNewMeshHeader);
 
-			char* name = new char[secondary.nameLength + 1];
-			memset(name, '\0', secondary.nameLength + 1);
-			CopyMemory(name, pByte, sizeof(char) * secondary.nameLength);
-			pByte += sizeof(char) * secondary.nameLength;
-
-			verts.resize(secondary.vertCount);
-			CopyMemory(verts.data(), pByte, sizeof(sVector3) * secondary.vertCount);
-			pByte += sizeof(sVector3) * secondary.vertCount;
-
-			UINT vertIndex = 0;
-			std::cout << name << "\t " << std::endl;
-			for (int i = 0; i < secondary.vertCount / 3; i++)
+			if		(primary.type == MessageType::NEW_MESH)
 			{
-				std::cout << "\tFace: " << i << std::endl;
-				std::cout << verts[vertIndex].x << ", " << verts[vertIndex].y << ", " << verts[vertIndex].z << std::endl;
-				vertIndex++;
-				std::cout << verts[vertIndex].x << ", " << verts[vertIndex].y << ", " << verts[vertIndex].z << std::endl;
-				vertIndex++;
-				std::cout << verts[vertIndex].x << ", " << verts[vertIndex].y << ", " << verts[vertIndex].z << std::endl;
-				vertIndex++;
+				//OutputDebugStringA("Recieving NEW_MESH\n");
+				type = NEW_MESH;
+
+				sNewMeshHeader secondary = {};
+
+				CopyMemory(&secondary, pByte, sizeof(sNewMeshHeader));
+				pByte += sizeof(sNewMeshHeader);
+
+				char* name = new char[secondary.nameLength + 1];
+				memset(name, '\0', secondary.nameLength + 1);
+				CopyMemory(name, pByte, sizeof(char) * secondary.nameLength);
+				pByte += sizeof(char) * secondary.nameLength;
+
+				verts.resize(secondary.vertCount);
+				CopyMemory(verts.data(), pByte, sizeof(Vertex_pos3nor3uv2) * secondary.vertCount);
+				pByte += sizeof(Vertex_pos3nor3uv2) * secondary.vertCount;
+
+				mdlName = name;
+				mdlVerts = verts;
+
+				//UINT vertIndex = 0;
+				//std::cout << name << "\t " << std::endl;
+				//for (int i = 0; i < secondary.vertCount / 3; i++)
+				//{
+				//	//std::cout << "\tFace: " << i << std::endl;
+				//	//std::cout << verts[vertIndex].x << ", " << verts[vertIndex].y << ", " << verts[vertIndex].z << std::endl;
+				//	//vertIndex++;
+				//	//std::cout << verts[vertIndex].x << ", " << verts[vertIndex].y << ", " << verts[vertIndex].z << std::endl;
+				//	//vertIndex++;
+				//	//std::cout << verts[vertIndex].x << ", " << verts[vertIndex].y << ", " << verts[vertIndex].z << std::endl;
+				//	//vertIndex++;
+				//}
+
+				*matrix = DirectX::XMLoadFloat4x4(&secondary.worldTransform);
+
+				tail = (tail + hdr.msgLength + sizeof(Header)) % ringBufferSize;
+				UpdateRBD(tail);
+
+				RETURN_SAFE_TRUE;
 			}
+			else if (primary.type == MessageType::MESH_REMOVED)
+			{
+				type = MESH_REMOVED;
 
-			tail = (tail + hdr.msgLength + sizeof(Header)) % ringBufferSize;
-			UpdateRBD(tail);
+				sMeshRemoved secondary = {};
 
-			RETURN_SAFE_TRUE;
+				CopyMemory(&secondary, pByte, sizeof(secondary));
+				pByte += sizeof(secondary);
+
+				char* name = new char[secondary.nameLength + 1];
+				memset(name, '\0', secondary.nameLength + 1);
+				CopyMemory(name, pByte, sizeof(char) * secondary.nameLength);
+				pByte += sizeof(char) * secondary.nameLength;
+
+				mdlName = name;
+
+				tail = (tail + hdr.msgLength + sizeof(Header)) % ringBufferSize;
+				UpdateRBD(tail);
+
+				RETURN_SAFE_TRUE;
+			}
+			else if (primary.type == MessageType::EDITED_MESH_TOPOLOGY)
+			{
+				type = EDITED_MESH_TOPOLOGY;
+
+				sEditedTopology secondary = {};
+
+				CopyMemory(&secondary, pByte, sizeof(secondary));
+				pByte += sizeof(secondary);
+
+				char* name = new char[secondary.nameLength + 1];
+				memset(name, '\0', secondary.nameLength + 1);
+				CopyMemory(name, pByte, sizeof(char) * secondary.nameLength);
+				pByte += sizeof(char) * secondary.nameLength;
+
+				verts.resize(secondary.vertCount);
+				CopyMemory(verts.data(), pByte, sizeof(Vertex_pos3nor3uv2) * secondary.vertCount);
+				pByte += sizeof(Vertex_pos3nor3uv2) * secondary.vertCount;
+
+				mdlName = name;
+				mdlVerts = verts;
+
+				tail = (tail + hdr.msgLength + sizeof(Header)) % ringBufferSize;
+				UpdateRBD(tail);
+
+				RETURN_SAFE_TRUE;
+			}
+			else if (primary.type == MessageType::EDITED_MESH_TRANSFORM)
+			{
+				type = EDITED_MESH_TRANSFORM;
+
+				sEditedMeshTransform secondary = {};
+
+				CopyMemory(&secondary, pByte, sizeof(sEditedMeshTransform));
+				pByte += sizeof(sEditedMeshTransform);
+
+				char* name = new char[secondary.nameLength + 1];
+				memset(name, '\0', secondary.nameLength + 1);
+				CopyMemory(name, pByte, sizeof(char) * secondary.nameLength);
+				pByte += sizeof(char) * secondary.nameLength;
+				mdlName = name;
+				*matrix = DirectX::XMLoadFloat4x4(&secondary.worldTransform);
+
+				tail = (tail + hdr.msgLength + sizeof(Header)) % ringBufferSize;
+				UpdateRBD(tail);
+
+				RETURN_SAFE_TRUE;
+			}
+			else if (primary.type == MessageType::EDITED_CAMERA_TRANSFORM)
+			{
+				OutputDebugStringA("Recieving Camera transform\n");
+
+				type = EDITED_CAMERA_TRANSFORM;
+
+				sEditedCameraTransform secondary = {};
+
+				CopyMemory(&secondary, pByte, sizeof(sEditedCameraTransform));
+				pByte += sizeof(sEditedCameraTransform);
+
+				camStruct = secondary;
+
+				tail = (tail + hdr.msgLength + sizeof(Header)) % ringBufferSize;
+				UpdateRBD(tail);
+
+				RETURN_SAFE_TRUE;
+			}
 		}
 
-		//float f[10] = {};
-		//CopyMemory(&f, pByte, hdr.msgLength);
-		//std::cout << "float: ";
-		//std::cout << f[5] << std::endl; //should print 1.0
-
-		//tail = (tail + hdr.msgLength + sizeof(Header)) % ringBufferSize;
-		//UpdateRBD(tail);
-
-		//RETURN_SAFE_TRUE;
 	}
 	///+-+-+-+-+-+-+-+-+-+-+-+
 	//If not, message is a dummy message (which means send() function
@@ -459,6 +556,68 @@ bool ComLib::isConnected()
 	//Check if buffers are initialized
 	return (ringBuffer.GetBuffer() != nullptr && ringBufferData.GetBuffer() != nullptr);
 	///+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+}
+
+void ComLib::get(ID3D11Device* device, ID3D11DeviceContext* deviceContext, ID3D11Buffer* materialBuffer, Camera* camera, float w, float h)
+{
+	string name;
+	vector<Vertex_pos3nor3uv2> verts;
+	sEditedCameraTransform camStruct = {};
+	XMMATRIX matrix;
+	MessageType type;
+	if (recv1(name, verts, &matrix, camStruct, type))
+	{
+		//check if model exists
+		
+		bool found = false;
+		auto condition = [&](Model* model) { found = (*model == name); };
+		std::for_each(m_mModels->begin(), m_mModels->end(), condition);
+
+		if (type == MessageType::NEW_MESH)
+		{
+			Model* model = new Model(device, deviceContext, materialBuffer);
+			model->LoadFromComLib(name.c_str(), verts);
+			model->SetShaders(m_vs, m_ps, nullptr);
+			model->SetWorldMatrix(matrix);
+			m_mModels->insert({ name, model });
+		}
+		else if (type == MessageType::MESH_REMOVED)
+		{
+			delete m_mModels->at(name);
+			m_mModels->erase(name);
+		}
+		else if (type == MessageType::EDITED_MESH_TRANSFORM)
+		{
+			m_mModels->at(name)->SetWorldMatrix(matrix);
+		}
+		else if (type == MessageType::EDITED_CAMERA_TRANSFORM)
+		{
+			XMVECTOR camPosition, camTarget, camUp;
+			camPosition = XMVectorSet(camStruct.posX, camStruct.posY, camStruct.posZ, 0.0f);
+			camTarget   = XMVectorSet(camStruct.tarX, camStruct.tarY, camStruct.tarZ, 0.0f);
+			camUp       = XMVectorSet(camStruct.upX, camStruct.upY, camStruct.upZ, 0.0f);
+			//Set the View matrix
+			XMMATRIX camView = DirectX::XMMatrixLookAtLH(camPosition, camTarget, camUp);
+
+			XMMATRIX camProjection;
+			//Set the Projection matrix
+			if (camStruct.type == CAMERA_TYPE::PERSPECTIVE)
+			{
+				(camProjection = DirectX::XMMatrixPerspectiveFovLH(camStruct.fovY, (float)w / h, camStruct.nearZ, camStruct.farZ));
+			}
+			else
+			{
+				(camProjection = DirectX::XMMatrixOrthographicLH(1, 1, camStruct.nearZ, camStruct.farZ));
+			}
+			camera->SetView(camView);
+			camera->SetProjection(camProjection);
+			camera->SetCameraPosition(camPosition);
+		}
+		else if (type == MessageType::EDITED_MESH_TOPOLOGY)
+		{
+			m_mModels->at(name)->RemakeTopology(verts);
+		}
+	}
 }
 
 size_t ComLib::nextSize()

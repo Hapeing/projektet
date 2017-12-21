@@ -12,7 +12,7 @@
 #include "DeferredRenderer.h"
 #include "Scene.h"
 #include "Helpers.h"
-
+#include "ComLib.h"
 using std::vector;
 typedef std::unordered_map<std::string, Texture*> TextureMap;
 
@@ -26,7 +26,7 @@ private:
 	void CompileShader(UINT numShaders, ShaderDescription* desc);
 
 	//-----
-	HWND* hWnd;
+	HWND hWnd;
 
 	UINT width, height = 0;
 
@@ -80,6 +80,9 @@ private:
 	//test
 	//TODO
 	Scene* scene;
+
+	//ENGINE
+	ComLib* consumer;
 public:
 	//Textures
 	static TextureMap m_smTextures;
@@ -96,6 +99,7 @@ public:
 	void SetViewport();
 	void CreateDepthStencilBuffer();
 	void CreateRasterizer();
+	void InitComLib();
 	void Update(HINSTANCE hInstance);
 	void Render();
 

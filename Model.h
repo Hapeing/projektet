@@ -29,6 +29,8 @@ private:
 	ID3D11Device*		 gDevice             = nullptr;
 	ID3D11DeviceContext* gDeviceContext      = nullptr;
 
+	std::string m_name                       = "";
+
 	std::vector<Shader*>     m_shaders;
 
 	ID3D11Buffer*		     m_pVertexBuffer = nullptr;
@@ -49,14 +51,18 @@ private:
 	ID3D11Buffer* m_materialCBuffer;
 
 	DirectX::XMMATRIX m_worldMatrix;
+	DirectX::XMMATRIX m_ModelMatrix;
 
 public:
 	void Draw();
 	void Update();
 
 	XMMATRIX GetWorldMatrix();
-
+	void SetWorldMatrix(XMMATRIX matrix);
+	void LoadFromComLib(const char* name, vector<Vertex_pos3nor3uv2>& verts);
+	void RemakeTopology(vector<Vertex_pos3nor3uv2>& verts);
 	void LoadOBJ(const char* name); //TODO: get material
+	void LoadOBJIndexed(const char* name); //TODO: get material
 	void AssignTexture(std::string name);
 	void LoadTexture(const wchar_t* filename);
 	//Euler rotation
@@ -68,6 +74,10 @@ public:
 	void SetShaders(Shader* vs, Shader* ps, Shader* gs);
 	void SetShadersAndDraw();
 	void CreateDebugPlane();
+
+	bool operator==(const Model& other) { return this->m_name == other.m_name; };
+	bool operator==(const std::string& str) { return this->m_name == str; };
+
 
 	Model(ID3D11Device* device, ID3D11DeviceContext* deviceContext, ID3D11Buffer* materialBuffer);
 	~Model();

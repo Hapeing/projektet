@@ -19,3 +19,13 @@ Debug/Application.obj
 *.db
 *.ilk
 *.log
+*.idb
+*.obj
+*.obj
+*.lastbuildstate
+*.tlog
+Debug/Demo.tlog/fxc.command.1.tlog
+*.ipch
+*.ipch
+*.tlog
+*.log

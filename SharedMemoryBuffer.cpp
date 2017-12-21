@@ -48,7 +48,7 @@ SharedMemoryBuffer::SharedMemoryBuffer(std::string name, size_t bufferSize)
 }
 
 char * SharedMemoryBuffer::Init(std::string name, size_t bufferSize)
-{	/// TODO: name
+{	
 	std::wstring widestr = std::wstring(name.begin(), name.end());
 	//Attempt to open first, since it could already be created
 	FileMapHandle = OpenFileMapping(

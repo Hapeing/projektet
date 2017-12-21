@@ -2,6 +2,13 @@
 #include <cstdint>
 #include <DirectXMath.h>
 using DirectX::XMFLOAT4X4;
+
+enum CAMERA_TYPE
+{
+	PERSPECTIVE,
+	ORTHOGRAPHIC
+};
+
 enum MessageType
 {
 	NEW_MESH                    = 0,
@@ -15,7 +22,9 @@ enum MessageType
 
 	NEW_POINTLIGHT              = 7,
 	EDITED_POINTLIGHT_TRANSFORM = 8,
-	EDITED_POINTLIGHT_COLOR     = 9
+	EDITED_POINTLIGHT_COLOR     = 9,
+
+	MESH_REMOVED				= 10
 };
 struct sPrimaryHeader
 {
@@ -24,15 +33,37 @@ struct sPrimaryHeader
 
 struct sNewMeshHeader
 {
+	XMFLOAT4X4 worldTransform;
 	uint32_t nameLength;
 	uint32_t vertCount;
-	XMFLOAT4X4 worldTransform;
+};
+
+struct sMeshRemoved
+{
+	uint32_t nameLength;
+};
+
+struct sEditedCameraTransform
+{
+	CAMERA_TYPE type;
+
+	float posX, posY, posZ;
+	float tarX, tarY, tarZ;
+	float upX, upY, upZ;
+
+	float fovY, nearZ, farZ;
+};
+
+struct sEditedTopology
+{
+	uint32_t nameLength;
+	uint32_t vertCount;
 };
 
 struct sEditedMeshTransform
 {
-	uint32_t nameLength;
 	XMFLOAT4X4 worldTransform;
+	uint32_t nameLength;
 };
 
 struct sVector3

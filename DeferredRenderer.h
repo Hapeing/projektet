@@ -5,7 +5,7 @@
 #include "Model.h"
 #include "Camera.h"
 #include "Shader.h"
-
+#include <unordered_map>
 class DeferredRenderer
 {
 private:
@@ -54,7 +54,7 @@ public:
 	void PrepareForGeometryPass(float camPitch, float camYaw);
 	void PrepareForLightingPass();
 
-	void RenderGeometry(vector<Model*> &models);
+	void RenderGeometry(std::unordered_map<std::string, Model*> &models);
 	void RenderLights();
 
 	void SetBuffers(ID3D11Buffer* wvp, ID3D11Buffer* light, ID3D11Buffer* camera);

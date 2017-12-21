@@ -40,7 +40,7 @@ void Application::CompileShader(UINT numShaders, ShaderDescription* desc)
 HRESULT Application::CreateDirect3DContext(HWND wndHandle)
 {
 	//Keep a reference to the window
-	hWnd = &wndHandle;
+	hWnd = wndHandle;
 
 	// create a struct to hold information about the swap chain
 	DXGI_SWAP_CHAIN_DESC scd;
@@ -110,6 +110,7 @@ HRESULT Application::CreateDirect3DContext(HWND wndHandle)
 
 		pBackBuffer->Release();
 	}
+
 	return hr;
 }
 
@@ -203,30 +204,32 @@ void Application::CreateShaders()
 
 void Application::CreateModels()
 {
-	//Add some default textures
+	{
+		////Add some default textures
 
-	//Create pointer, 'new' a Texture
-	Texture* texCheckered = new Texture();
-	//Call load (uses WICTextureLoader)
-	texCheckered->LoadFromFile(gDevice, (WDEFAULT_DIRECTORY + L"checkered.png").c_str());
-	//Insert into map for easy access
-	m_smTextures.insert({ "checkered", texCheckered });
+		////Create pointer, 'new' a Texture
+		//Texture* texCheckered = new Texture();
+		////Call load (uses WICTextureLoader)
+		//texCheckered->LoadFromFile(gDevice, (WDEFAULT_DIRECTORY + L"checkered.png").c_str());
+		////Insert into map for easy access
+		//m_smTextures.insert({ "checkered", texCheckered });
 
-	Texture* texRed = new Texture();
-	texRed->LoadFromFile(gDevice, (WDEFAULT_DIRECTORY + L"red.png").c_str());
-	m_smTextures.insert({ "red", texRed });
+		//Texture* texRed = new Texture();
+		//texRed->LoadFromFile(gDevice, (WDEFAULT_DIRECTORY + L"red.png").c_str());
+		//m_smTextures.insert({ "red", texRed });
 
-	Texture* texGrey = new Texture();
-	texGrey->LoadFromFile(gDevice, (WDEFAULT_DIRECTORY + L"grey.png").c_str());
-	m_smTextures.insert({ "grey", texGrey });
+		//Texture* texGrey = new Texture();
+		//texGrey->LoadFromFile(gDevice, (WDEFAULT_DIRECTORY + L"grey.png").c_str());
+		//m_smTextures.insert({ "grey", texGrey });
 
-	Model* dumpster = new Model(gDevice, gDeviceContext, m_vBuffers["MATERIAL"]);
-	dumpster->LoadOBJ("dumpster1");
-	dumpster->SetShaders(m_vShaders["vs1"], m_vShaders["ps1"], nullptr);
-	//dumpster->AssignTexture("grey");
-	m_vModels.push_back(dumpster);
-	m_mModels.insert({ "dumpster", dumpster });
+/*		Model* dumpster = new Model(gDevice, gDeviceContext, m_vBuffers["MATERIAL"]);
+		dumpster->LoadOBJ("dumpster1");
+		dumpster->IncreaseScale(DirectX::XMVectorSet(-0.9, -0.9, -0.9, 1.0));
+		dumpster->SetShaders(m_vShaders["vs1"], m_vShaders["ps1"], nullptr);
 
+		m_vModels.push_back(dumpster);
+		m_mModels.insert({ "dumpster", dumpster });*/
+	}
 }
 
 Model* Application::CreateModelFromReference(Model * reference)
@@ -249,7 +252,7 @@ void Application::SetViewport()
 	vp.TopLeftY = 0;
 	gDeviceContext->RSSetViewports(1, &vp);
 
-	camera.Init(width, height);
+	camera.Init(width, height, ORTHOGRAPHIC);
 
 	//whatever
 	time = std::clock();
@@ -330,14 +333,22 @@ void Application::CreateRasterizer()
 	//rd.
 }
 
+void Application::InitComLib()
+{
+	consumer = new ComLib("default", 10000000, ComLib::TYPE::CONSUMER);
+	consumer->Init(m_mModels, m_vShaders["vs1"], m_vShaders["ps1"]);
+}
+
 //Update
 //Updates time since last update and checks for input. (DetectInput(timeElapsed);)
 void Application::Update(HINSTANCE hInstance)
 {
-
+	consumer->get(gDevice, gDeviceContext, m_vBuffers["MATERIAL"], &camera, width, height);
 	timeElapsed = ((std::clock() - time) / (float)CLOCKS_PER_SEC) - lastTimeElapsed;
 	DetectInput(timeElapsed);
 	lastTimeElapsed = timeElapsed;
+
+
 }
 
 //Render
@@ -353,7 +364,7 @@ void Application::Render()
 		m_dr->SetShaders(m_vShaders["DRP1"], m_vShaders["DRP2"], m_vShaders["vs1"], m_vShaders["VS_quad"]);
 		m_dr->SetRenderTargets();
 		m_dr->PrepareForGeometryPass(camPitch, camYaw);
-		m_dr->RenderGeometry(m_vModels);
+		m_dr->RenderGeometry(m_mModels);
 		m_dr->PrepareForLightingPass();
 		m_dr->RenderLights();
 	}
@@ -387,12 +398,12 @@ void Application::Render()
 
 
 		//Update wvp
-		for (auto& model : m_vModels)
+		for (auto& model : m_mModels)
 		{
 			//Update models world
-			model->Update();
+			model.second->Update();
 			//Update Camera and WVP Cbuffer
-			camera.SetWorldMatrix(model->GetWorldMatrix());
+			camera.SetWorldMatrix(model.second->GetWorldMatrix());
 			//camera.SetWorldMatrix(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationX(0), DirectX::XMMatrixRotationY(0)));
 
 
@@ -415,7 +426,7 @@ void Application::Render()
 			XMStoreFloat4x4(&wvp.w, DirectX::XMMatrixTranspose(it_w));
 
 			//Calc and set inverse transpose of world
-			it_w = XMMatrixTranspose(XMMatrixInverse(&XMMatrixDeterminant(it_w), it_w));
+			it_w = XMMatrixInverse(&XMMatrixDeterminant(it_w), it_w);
 			XMStoreFloat4x4(&wvp.it_w, it_w);
 
 			gDeviceContext->UpdateSubresource(m_vBuffers["WVP"], 0, NULL, &wvp, 0, 0);
@@ -427,7 +438,7 @@ void Application::Render()
 			gDeviceContext->PSSetConstantBuffers(1, 1, &m_vBuffers["CAMERA"]);
 
 			//draw the model
-			model->SetShadersAndDraw();
+			model.second->SetShadersAndDraw();
 
 		}
 	}
@@ -505,10 +516,10 @@ bool Application::InitDirectInput(HINSTANCE hInstance)
 		NULL);
 
 	hr = DIKeyboard->SetDataFormat(&c_dfDIKeyboard);
-	hr = DIKeyboard->SetCooperativeLevel(*hWnd, DISCL_FOREGROUND | DISCL_NONEXCLUSIVE);
+	hr = DIKeyboard->SetCooperativeLevel(hWnd, DISCL_FOREGROUND | DISCL_NONEXCLUSIVE);
 
 	hr = DIMouse->SetDataFormat(&c_dfDIMouse);
-	hr = DIMouse->SetCooperativeLevel(*hWnd, DISCL_EXCLUSIVE | DISCL_NOWINKEY | DISCL_FOREGROUND);
+	hr = DIMouse->SetCooperativeLevel(hWnd, DISCL_EXCLUSIVE | DISCL_NOWINKEY | DISCL_FOREGROUND);
 
 	return true; //TODO
 }
@@ -517,6 +528,8 @@ bool Application::InitDirectInput(HINSTANCE hInstance)
 //for the first person camera.
 void Application::DetectInput(double time)
 {
+	if (hWnd != GetActiveWindow())
+		return;
 	//Create a state for current mouse state
 	DIMOUSESTATE mouseCurrState;
 
@@ -532,7 +545,7 @@ void Application::DetectInput(double time)
 
 	//If we press escape, close app (DOESNT WORK)
 	if (keyboardState[DIK_ESCAPE] & 0x80)
-		PostMessage(*hWnd, WM_DESTROY, 0, 0);
+		PostMessage(hWnd, WM_DESTROY, 0, 0);
 
 	//Camera movement (W, A, S, D)
 	if ((lastKeyboardState[DIK_G] & 0x80) && !(keyboardState[DIK_G] & 0x80))
@@ -602,4 +615,5 @@ Application::~Application()
 	if (DIMouse           ) DIMouse->Release();
 	if (DIKeyboard        ) DIKeyboard->Release();
 	if (depthStencilState ) depthStencilState->Release();
+	delete consumer;
 }

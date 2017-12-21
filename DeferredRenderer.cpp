@@ -33,7 +33,7 @@ void DeferredRenderer::SetCamera(Camera * cam)
 	camera = cam;
 }
 
-void DeferredRenderer::RenderGeometry(vector<Model*> &models)
+void DeferredRenderer::RenderGeometry(std::unordered_map<std::string, Model*> &models)
 {
 	m_GeometryPS->Bind();
 	m_GeometryVS->Bind();
@@ -42,9 +42,9 @@ void DeferredRenderer::RenderGeometry(vector<Model*> &models)
 	for (auto& model : models)
 	{
 		//Update models world
-		model->Update();
+		model.second->Update();
 		//Update Camera and WVP Cbuffer
-		camera->SetWorldMatrix(model->GetWorldMatrix());
+		camera->SetWorldMatrix(model.second->GetWorldMatrix());
 		//camera.SetWorldMatrix(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationX(0), DirectX::XMMatrixRotationY(0)));
 
 
@@ -73,7 +73,7 @@ void DeferredRenderer::RenderGeometry(vector<Model*> &models)
 		m_deviceContext->UpdateSubresource(m_WVPBuffer, 0, NULL, &wvp, 0, 0);
 
 		//draw the model
-		model->Draw();
+		model.second->Draw();
 	}
 
 }

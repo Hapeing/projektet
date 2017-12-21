@@ -1,5 +1,6 @@
 #pragma once
 #include <DirectXMath.h>
+#include "ComLibHeaders.h"
 
 using namespace DirectX;
 
@@ -7,6 +8,8 @@ class Camera
 {
 private:
 	
+	CAMERA_TYPE cameraType;
+
 	unsigned int vp_w, vp_h = 0;
 
 	XMVECTOR DefaultForward;
@@ -22,13 +25,19 @@ private:
 	XMVECTOR	camTarget;
 	XMVECTOR	camUp;
 public:
-	Camera(unsigned int w, unsigned int h);
+
+
+
+	Camera(unsigned int w, unsigned int h, CAMERA_TYPE type);
 	Camera() {};
-	void Init(unsigned int w, unsigned int h);
+	void Init(unsigned int w, unsigned int h, CAMERA_TYPE type);
 	
 	void Update();
 
 	void UpdateCameraForwardRight(XMMATRIX matrix);
+
+	void SetView(XMMATRIX& matrix);
+	void SetProjection(XMMATRIX& matrix);
 
 	void SetCameraUp(XMVECTOR up);
 	void SetCameraTarget(XMVECTOR target);
